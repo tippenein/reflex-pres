@@ -1,0 +1,27 @@
+name:                pres
+author:              tippenein
+version:             0.0.0.1
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable pres
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  other-modules:
+      Widget
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base
+    , aeson
+    , bytestring
+    , text
+    , time
+    , Decimal
+    , ghcjs-base
+    , ghcjs-dom
+    , haskell-src-exts >= 1.16 && < 1.18
+    , reflex == 0.4.0
+    , reflex-dom
+    , containers == 0.5.*
+    , safe == 0.3.*
+  default-language:    Haskell2010

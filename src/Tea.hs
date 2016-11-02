@@ -1,10 +1,13 @@
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Tea where
 
 import           Reflex
 import           Reflex.Dom
 
+import Data.Text
+import qualified Data.Map as Map
 import           Data.Decimal
 import           Data.Time.Clock (UTCTime)
 
@@ -13,8 +16,12 @@ import qualified Widget
 data Tea
   = Green
   | Black
+  | White
   | Other Decimal
   | TimerTick Decimal
+
+whiteDef :: Decimal
+whiteDef = 2.0
 
 greenDef :: Decimal
 greenDef = 3.0
@@ -22,18 +29,29 @@ greenDef = 3.0
 blackDef :: Decimal
 blackDef = 4.0
 
+-- buttonWith :: DomBuilder t m => Text -> Map.Map String String -> m (Event t ())
+buttonWith title attrs = do
+  (e,_) <- elAttr' "button" attrs $ text title
+  pure $ domEvent Click e
+
+-- buttonWithDyn :: DomBuilder t m => Text -> Dynamic t (Map.Map String String) -> m (Event t ())
+buttonWithDyn title attrs = do
+  (e,_) <- elDynAttr' "button" attrs $ text title
+  pure $ domEvent Click e
+
+  -- styledButton title color = elAttr' "Green (3 min)" $ def & ("class" =: "")
 timer :: MonadWidget t m => UTCTime -> m ()
 timer t0 = el "div" $ do
   let increment = 1.0 -- this one's a decimal
   tick <- tickLossy 1.0 t0 -- this one's a nominal diff time
 
-  green <- button "Green (3 min)"
+  white <- button "White (2 min)"
+  green <- buttonWith "Green (3 min)" ("class" =: "green")
   black <- button "Black (4 min)"
   other <- button "Custom Time"
 
   otherTime <- Widget.readableInput $ def
-    & attributes .~ constDyn (mconcat [ "placeholder" =: "custom"
-                                      ])
+    & attributes .~ constDyn (mconcat ["placeholder" =: "custom"])
   otherDyn <- holdDyn (2.5 :: Decimal) otherTime
 
   rec let events = leftmost
@@ -41,6 +59,7 @@ timer t0 = el "div" $ do
             , (\(curr, _) -> Other curr) <$> attachDyn otherDyn other
             , Green <$ green
             , Black <$ black
+            , White <$ white
             ]
 
       remaining <- foldDyn (\ev curr -> case ev of
@@ -50,6 +69,7 @@ timer t0 = el "div" $ do
                 else curr
               Green -> greenDef
               Black -> blackDef
+              White -> whiteDef
               Other t -> t
           ) (0.0 :: Decimal) events
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Widget where
 
@@ -12,6 +13,7 @@ import           Data.Monoid
 import           Data.Time.Clock  (UTCTime)
 import           Data.Time.Format (defaultTimeLocale, parseTimeM)
 
+import Data.Text
 import           Text.Read        (readMaybe)
 
 type PageTitle = String
@@ -34,6 +36,17 @@ readableInput :: (MonadWidget t m, Read a) => TextInputConfig t -> m (Event t a)
 readableInput conf = do
     c <- textInput conf
     pure $ fmapMaybe readMaybe $ _textInput_input c
+
+
+-- buttonWith :: DomBuilder t m => Text -> Map.Map String String -> m (Event t ())
+buttonWith title attrs = do
+  (e,_) <- elAttr' "button" attrs $ text title
+  pure $ domEvent Click e
+
+-- buttonWithDyn :: DomBuilder t m => Text -> Dynamic t (Map.Map String String) -> m (Event t ())
+buttonWithDyn title attrs = do
+  (e,_) <- elDynAttr' "button" attrs $ text title
+  pure $ domEvent Click e
 
 maybeButton :: MonadWidget t m
             => Dynamic t Bool -- ^ Is the button enabled?

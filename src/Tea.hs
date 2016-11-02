@@ -1,13 +1,10 @@
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Tea where
 
 import           Reflex
 import           Reflex.Dom
 
-import Data.Text
-import qualified Data.Map as Map
 import           Data.Decimal
 import           Data.Time.Clock (UTCTime)
 
@@ -29,16 +26,6 @@ greenDef = 3.0
 blackDef :: Decimal
 blackDef = 4.0
 
--- buttonWith :: DomBuilder t m => Text -> Map.Map String String -> m (Event t ())
-buttonWith title attrs = do
-  (e,_) <- elAttr' "button" attrs $ text title
-  pure $ domEvent Click e
-
--- buttonWithDyn :: DomBuilder t m => Text -> Dynamic t (Map.Map String String) -> m (Event t ())
-buttonWithDyn title attrs = do
-  (e,_) <- elDynAttr' "button" attrs $ text title
-  pure $ domEvent Click e
-
   -- styledButton title color = elAttr' "Green (3 min)" $ def & ("class" =: "")
 timer :: MonadWidget t m => UTCTime -> m ()
 timer t0 = el "div" $ do
@@ -46,7 +33,7 @@ timer t0 = el "div" $ do
   tick <- tickLossy 1.0 t0 -- this one's a nominal diff time
 
   white <- button "White (2 min)"
-  green <- buttonWith "Green (3 min)" ("class" =: "green")
+  green <- Widget.buttonWith "Green (3 min)" ("class" =: "green")
   black <- button "Black (4 min)"
   other <- button "Custom Time"
 

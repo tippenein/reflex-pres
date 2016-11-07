@@ -1,3 +1,14 @@
+$white: #fff;
+$black: #000;
+$green: #88c655;
+$blue: #4990e2;
+$bezier: cubic-bezier(0.215, 0.61, 0.355, 1);
+$gray-base: lighten($black, 15%); //#262626
+$gray-dark: lighten($gray-base, 40%); //#8c8c8c
+$gray-med: lighten($gray-base, 65%); //#cccccc
+$gray-light: lighten($gray-base, 72%); //#dedede
+$gray-lightest: #fafafb;
+
 .button {
   height: 40px;
   border-radius: 100px;

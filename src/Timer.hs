@@ -15,6 +15,12 @@ data TimerEvent
   | Break Decimal
   | TimerTick Decimal
 
+timeInput :: (Read a, MonadWidget t m ) => String -> m (Event t a)
+timeInput placeholder = Widget.readableInput $ def
+    & attributes .~ constDyn (mconcat [ "placeholder" =: placeholder
+                                      , "class" =: "timer-input"
+                                      ])
+
 timer :: MonadWidget t m => UTCTime -> m ()
 timer t0 = el "div" $ do
   let increment = 1.0 -- this one's a decimal
@@ -23,15 +29,10 @@ timer t0 = el "div" $ do
   start <- button "Start"
   take_a_break <- button "Take a Break"
 
-  countdownFrom <- Widget.readableInput $ def
-    & attributes .~ constDyn (mconcat [ "placeholder" =: "pomodoro length..."
-                                      , "class" =: "limit"
-                                      ])
+  countdownFrom <- timeInput "pomodoro time"
   countdownDyn <- holdDyn 25.0 countdownFrom
 
-  breakAmount <- Widget.readableInput $ def 
-    & attributes .~ constDyn (mconcat [ "placeholder" =: "chill for a sec."
-                                      ])
+  breakAmount <- timeInput "chill time"
   breakDyn <- holdDyn 5.0 breakAmount
 
   rec let events = leftmost

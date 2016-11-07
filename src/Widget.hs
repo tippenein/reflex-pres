@@ -1,5 +1,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE JavaScriptFFI      #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
 module Widget where
 
@@ -12,12 +14,20 @@ import           Data.Maybe
 import           Data.Monoid
 import           Data.Time.Clock  (UTCTime)
 import           Data.Time.Format (defaultTimeLocale, parseTimeM)
+import qualified GHCJS.Types    as T
+import qualified GHCJS.Foreign  as F
 
 import Data.Text
 import           Text.Read        (readMaybe)
 
+foreign import javascript unsafe "document.getElementById($1).play()" alert :: T.JSString -> IO ()
+
 type PageTitle = String
 
+-- playAudio audioFile = do
+--   callback <- F.syncCallback F.AlwaysRetain True $ do
+--     alert "hello world"
+--   onload callback
 headElement :: MonadWidget t m => PageTitle -> m ()
 headElement title = do
   el "title" (text title)
@@ -37,13 +47,23 @@ readableInput conf = do
     c <- textInput conf
     pure $ fmapMaybe readMaybe $ _textInput_input c
 
+radio :: (MonadWidget t m) => String -> [Checkbox String] -> m [Event t String]
+radio name options =
+  mapM _checkbox_change $ mapM c options
+  where
+    c = \v -> checkbox False (def & attributes .~ constDyn (
+                mconcat [ "name" =: name
+                        , "type" =: "radio"
+                        , "value" =: v
+                        ]
+                ))
 
--- buttonWith :: DomBuilder t m => Text -> Map.Map String String -> m (Event t ())
+-- buttonWith :: DomBuilder t m => String -> Map.Map String String -> m (Event t ())
 buttonWith title attrs = do
-  (e,_) <- elAttr' "button" attrs $ text title
+  (e,_) <- elAttr' "a" attrs $ text title
   pure $ domEvent Click e
 
--- buttonWithDyn :: DomBuilder t m => Text -> Dynamic t (Map.Map String String) -> m (Event t ())
+-- buttonWithDyn :: DomBuilder t m => String -> Dynamic t (Map.Map String String) -> m (Event t ())
 buttonWithDyn title attrs = do
   (e,_) <- elDynAttr' "button" attrs $ text title
   pure $ domEvent Click e

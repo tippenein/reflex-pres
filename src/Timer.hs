@@ -1,59 +1,33 @@
-{-# LANGUAGE RecursiveDo #-}
-
 module Timer where
 
-import           Reflex
-import           Reflex.Dom
+import Text.Parsec
 
-import           Data.Decimal
-import           Data.Time.Clock (UTCTime)
+type Parser = Parsec String ()
 
-import Widget
+data T
+  = T
+  { minutes :: Int
+  , seconds :: Int
+  } deriving (Show, Eq)
 
-data TimerEvent
-  = Start Decimal -- starting countdown
-  | Break Decimal
-  | TimerTick Decimal
+parse' :: Parser a -> String -> Either ParseError a
+parse' rule = parse rule "(source_file)"
 
-timeInput :: (Read a, MonadWidget t m ) => String -> m (Event t a)
-timeInput placeholder = Widget.readableInput $ def
-    & attributes .~ constDyn (mconcat [ "placeholder" =: placeholder
-                                      , "class" =: "timer-input"
-                                      ])
+timeP :: Char -> Parser Int
+timeP c = option 0 $ try (valParser <* char c)
 
-timer :: MonadWidget t m => UTCTime -> m ()
-timer t0 = el "div" $ do
-  let increment = 1.0 -- this one's a decimal
-  tick <- tickLossy 1.0 t0 -- this one's a nominal diff time
+fromT :: T -> Int
+fromT (T m s) = (m * 60) + s
 
-  start <- button "Start"
-  take_a_break <- button "Take a Break"
+timeParser :: Parser T
+timeParser = do
+  m <- timeP 'm'
+  s <- timeP 's'
+  pure $ T m s
 
-  countdownFrom <- timeInput "pomodoro time"
-  countdownDyn <- holdDyn 25.0 countdownFrom
+valParser :: Parser Int
+valParser = rd <$> many1 digit
+  where rd = read :: String -> Int
 
-  breakAmount <- timeInput "chill time"
-  breakDyn <- holdDyn 5.0 breakAmount
-
-  rec let events = leftmost
-            [ (\(curr, _) -> TimerTick curr) <$> attachDyn (constDyn 0.0) tick
-            , (\(from, _) -> Start from) <$> attachDyn countdownDyn start
-            , (\(from, _) -> Break from) <$> attachDyn breakDyn take_a_break
-            ]
-
-      remaining <- foldDyn (\ev curr -> case ev of
-              TimerTick _whatever ->
-                if curr - increment >= 0
-                then curr - increment
-                else curr
-              Start limit' -> limit'
-              Break b -> b
-          ) (0.0 :: Decimal) events
-
-      elapsedText <- mapDyn show remaining
-      _ <- widgetHold elapsedWidget $ dynText elapsedText <$ start
-  pure ()
-
-elapsedWidget :: MonadWidget t m => m ()
-elapsedWidget = el "p" $ text ""
-
+toTime :: String -> Either ParseError T
+toTime = parse' timeParser

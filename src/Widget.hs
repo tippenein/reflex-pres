@@ -1,4 +1,6 @@
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE JavaScriptFFI      #-}
 {-# LANGUAGE OverloadedStrings  #-}
@@ -8,6 +10,7 @@ module Widget where
 import           Reflex
 import           Reflex.Dom
 
+import Data.Default (Default)
 import           Data.Map         (Map)
 import qualified Data.Map         as Map
 import           Data.Maybe
@@ -17,46 +20,51 @@ import           Data.Time.Format (defaultTimeLocale, parseTimeM)
 import qualified GHCJS.Types    as T
 import qualified GHCJS.Foreign  as F
 
-import Data.Text
 import           Text.Read        (readMaybe)
 
-foreign import javascript unsafe "document.getElementById($1).play()" alert :: T.JSString -> IO ()
+foreign import javascript unsafe "document.getElementById($1).play()" play :: T.JSString -> IO ()
 
 type PageTitle = String
 
--- playAudio audioFile = do
---   callback <- F.syncCallback F.AlwaysRetain True $ do
---     alert "hello world"
---   onload callback
-headElement :: MonadWidget t m => PageTitle -> m ()
-headElement title = do
-  el "title" (text title)
+playAudio audioFile = play "ding"
+
+headElement :: MonadWidget t m => String -> m ()
+headElement _title = stylesheetImports
+
+headElementDyn :: MonadWidget t m => Dynamic t String -> m ()
+headElementDyn title = do
+  _ <- elDynHtml' "title" title
+  stylesheetImports
+
+stylesheetImports :: MonadWidget t m => m ()
+stylesheetImports = do
   styleSheet "css/style.css"
   styleSheet "https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"
   styleSheet "http://fonts.googleapis.com/css?family=Lato"
   styleSheet "https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css"
-  where
-    styleSheet _link = elAttr "link" (Map.fromList [
-          ("rel", "stylesheet")
-        , ("type", "text/css")
-        , ("href", _link)
-      ]) $ pure ()
+
+styleSheet _link = elAttr "link" (Map.fromList [
+      ("rel", "stylesheet")
+    , ("type", "text/css")
+    , ("href", _link)
+  ]) $ pure ()
 
 readableInput :: (MonadWidget t m, Read a) => TextInputConfig t -> m (Event t a)
 readableInput conf = do
     c <- textInput conf
     pure $ fmapMaybe readMaybe $ _textInput_input c
 
-radio :: (MonadWidget t m) => String -> [Checkbox String] -> m [Event t String]
-radio name options =
-  mapM _checkbox_change $ mapM c options
-  where
-    c = \v -> checkbox False (def & attributes .~ constDyn (
-                mconcat [ "name" =: name
-                        , "type" =: "radio"
-                        , "value" =: v
-                        ]
-                ))
+-- radio :: (MonadWidget t m) => String -> [Checkbox String] -> m ( Event t String )
+-- radio name options =
+--   el "input" $ do
+--     radios <- mapM c options
+--   where
+--     c v = checkbox False (def & attributes .~ constDyn (
+--                 mconcat [ "name" =: name
+--                         , "type" =: "radio"
+--                         , "value" =: v
+--                         ]
+--                 ))
 
 -- buttonWith :: DomBuilder t m => String -> Map.Map String String -> m (Event t ())
 buttonWith title attrs = do
@@ -119,3 +127,16 @@ dynCombine3 :: (Reflex t, MonadHold t m)
 dynCombine3 da db dc f = do
     dg <- combineDyn f da db
     combineDyn (\g c -> g c) dg dc
+
+checkboxAttrs :: forall b t.
+  (Reflex t, Default b, HasAttributes b, Attrs b ~ Dynamic t (Map String String))
+  => String -- | name
+  -> String -- | value
+  -> b
+checkboxAttrs name v = def & attributes .~ constDyn (
+                mconcat [ "name" =: name
+                        , "id" =: name
+                        , "type" =: "checkbox"
+                        , "value" =: v
+                        ]
+                )

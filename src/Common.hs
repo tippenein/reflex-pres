@@ -12,6 +12,11 @@ hsl h s l = "hsl(" <> inner <> ")"
     s' = tshow s <> "%"
     l' = tshow l <> "%"
 
+tshowMaybe :: (Show a) => Maybe a -> Text
+tshowMaybe a = case a of
+  Nothing -> ""
+  Just a' -> tshow a'
+
 tshow :: (Show a) => a -> Text
 tshow a = T.pack $ show a
 

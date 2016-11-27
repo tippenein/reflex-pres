@@ -13,6 +13,10 @@ body {
     display: block;
     height: 100px;
 }
+header {
+    margin: 0 auto 0 auto;
+    position: absolute;
+}
 .button {
   &.green {
     background-color: $green;

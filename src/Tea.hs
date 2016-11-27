@@ -4,9 +4,9 @@
 
 module Tea where
 
-import Data.List
 import Data.Text (Text)
 import Data.Monoid ((<>))
+import Data.Maybe
 import Control.Lens hiding (view)
 import Data.Time.Clock (UTCTime)
 import Reflex
@@ -88,7 +88,7 @@ lightnessRate White = equalPortion 88 whiteDef
 lightnessRate ( Other c ) = equalPortion 58 c
 
 equalPortion :: Float -> Float -> Float
-equalPortion a b = a / (b * 60)
+equalPortion a b = (100 - a) / (b * 60)
 
 teaColor :: Model -> Text
 teaColor m = case (chosenTea m, ceiling $ _lightness m) of
@@ -104,32 +104,29 @@ teaColor m = case (chosenTea m, ceiling $ _lightness m) of
 loading :: MonadWidget t m => m ()
 loading = text "loading..."
 
-showMaybeConcat :: Maybe Tea -> Text -> Text -> Text
-showMaybeConcat Nothing _ def' = def'
-showMaybeConcat ( Just a ) c _ = tshow a <> c
-
 elapsedWidget :: MonadWidget t m => Dynamic t Model -> m ()
-elapsedWidget m  =
-  -- isDone <- mapDyn _done m
-  -- if isDone
-  --   then el "header" $ text "Tea is Done!"
-  --   else
-  el "header" $ do
-    let t = fmap (\m' -> showMaybeConcat (chosenTea m') " tea will be ready in " "select a steep time") m
-    dynText t
+elapsedWidget m = do
+  let commonAttrs = constDyn ("class" =: "center")
+  let attrsIf f = fmap (\m' -> if f m' then "style" =: "visibility:hidden" else mempty) m
+  elDynAttr "header" (attrsIf (not . _done) <> commonAttrs) $ text "tea is done!"
+  elDynAttr "header" (attrsIf _done <> commonAttrs) $ do
+    dynText $ fmap (tshowMaybe . chosenTea) m <> constDyn " tea will be ready in "
     dynText $ fmap showTime m
 
-statusWidget :: MonadWidget t m => Dynamic t Model -> m ()
-statusWidget model = do
+nothing :: MonadWidget t m => m ()
+nothing = el "p" $ text ""
+statusWidget :: MonadWidget t m => Dynamic t Model -> Event t a -> m ()
+statusWidget model event = do
   let attrs = fmap (\m ->
         "class" =: "six columns tea-block" <>
         "style" =: teaColor m) model
 
-  div "row" $
-    elDynAttr "div" attrs $ do
+  _ <- widgetHold nothing $ w attrs <$ event
+  pure ()
+  where
+    w attrs = elDynAttr "div" attrs $ do
       _ <- elapsedWidget model
       pure ()
-  pure ()
 
 update :: Action -> Model -> Model
 update UnitChange m = m { _unit = flipUnit (_unit m) }
@@ -156,27 +153,30 @@ view t0 model = elClass "div" "row" $ do
   tick <- tickLossy 1.0 t0 -- 1.0 is a nominal diff time
 
   rec
-      statusWidget model
+      statusWidget model startEvent
+
       (white,green,black) <- timerContainer $ do
         w <- Widget.buttonWith "White (2 min)" ("class" =: "button white huge")
         g <- Widget.buttonWith "Green (3 min)" ("class" =: "button green huge")
         b <- Widget.buttonWith "Black (4 min)" ("class" =: "button black huge")
         pure (w, g, b)
 
-      (other, otherDyn) <- timerContainer $ do
+      (other, otherDyn, unitToggle) <- timerContainer $ do
         otherTime <- Widget.readableInput $ def
           & attributes .~ constDyn (mconcat ["placeholder" =: "custom"])
         o <- button "Custom Time"
         od <- holdDyn (2.5 :: Float) otherTime
-        pure ( o, od )
+        minuteBox <- checkbox True $ Widget.checkboxAttrs "unit" "minute"
+        -- checkbox
+        dynText $ fmap (tshow . _unit) model
+        let uToggle = _checkbox_change minuteBox
+        pure ( o, od, uToggle )
 
-      minuteBox <- checkbox True $ Widget.checkboxAttrs "unit" "minute"
-      dynText $ fmap (tshow . _unit) model
-      let unitToggle = _checkbox_change minuteBox
+      let startEvent = leftmost [green, white,black,other]
 
   pure $ leftmost
       [ TimerTick <$ tick
-      , (\(v,_) -> Start (Other v)) <$> attachDyn otherDyn other
+      , Start <$> (Other <$> tagPromptlyDyn otherDyn other)
       , Start Green <$ green
       , Start Black <$ black
       , Start White <$ white
@@ -189,12 +189,11 @@ bodyElement tStart =
     rec changes <- view tStart model
         model <- foldDyn update initialModel changes
 
-        display model
         -- timer bell
         Widget.audioEl "ding.wav"
         let isDone = fmap _done model
         let doneEvent = updated isDone
-        -- pure $ Widget.playAudio <$ doneEvent
+        _ <- pure $ Widget.playAudio <$ doneEvent
 
         -- update page title with time remaining
         let t = fmap showTime model

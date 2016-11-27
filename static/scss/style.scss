@@ -1,9 +1,39 @@
+$bezier: cubic-bezier(0.215, 0.61, 0.355, 1);
+$green: hsl(92,57%,58%);
+$black: hsl(38,54%,7%);
+$white: white;
+$gray-med: gray;
+        
+body {
+    font-size: 2em;
+    font-family: Lato,Raleway,sans-serif;
+}
+
 .tea-block {
     display: block;
     height: 100px;
 }
-
 .button {
+  &.green {
+    background-color: $green;
+    color: $black;
+    min-width: 150px;
+  }
+
+  &.white {
+    background-color: $white;
+    color: $black;
+    min-width: 150px;
+  }
+
+  &.black {
+    background-color: $black;
+    color: $white;
+    min-width: 150px;
+  }
+}
+
+.button-rounded {
   height: 40px;
   border-radius: 100px;
   border: none;
@@ -37,15 +67,6 @@
     min-width: 150px;
   }
 
-  &.info {
-    background-color: $blue;
-    color: $white;
-
-    &:hover, &:focus {
-      color: $white;
-      background-color: lighten($blue, 5%);
-    }
-  }
 
   &[disabled] {
     color: $white;

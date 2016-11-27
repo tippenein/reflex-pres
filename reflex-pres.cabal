@@ -9,6 +9,7 @@ library
   exposed-modules:
       Tea
     , Widget
+    , Common
 
   build-depends:
       base
@@ -20,7 +21,7 @@ library
     , ghcjs-base
     , ghcjs-dom
     , haskell-src-exts >= 1.16 && < 1.18
-    , reflex == 0.4.0
+    , reflex
     , reflex-dom
     , containers == 0.5.*
     , safe == 0.3.*
@@ -37,7 +38,7 @@ executable pres
     , aeson
     , time
     , haskell-src-exts >= 1.16 && < 1.18
-    , reflex == 0.4.0
+    , reflex
     , reflex-dom
     , containers == 0.5.*
     , safe == 0.3.*

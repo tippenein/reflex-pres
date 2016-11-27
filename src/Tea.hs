@@ -1,11 +1,11 @@
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Tea where
 
-import Control.Monad (replicateM_)
-import Data.List 
+import Data.List
+import Data.Text (Text)
 import Data.Monoid ((<>))
 import Control.Lens hiding (view)
 import Data.Time.Clock (UTCTime)
@@ -13,6 +13,7 @@ import Reflex
 import Prelude hiding (div)
 import Reflex.Dom
 
+import Common
 import qualified Widget
 
 whiteDef :: Float
@@ -47,10 +48,10 @@ data Model
   , _unit :: Unit
   , chosenTea :: Maybe Tea
   , _lightness :: Float
-  , done :: Bool
+  , _done :: Bool
   } deriving (Show)
 
-makeLenses ''Model
+-- makeLenses ''Model
 
 increment :: Float
 increment = 1.0 -- this one's a decimal
@@ -62,13 +63,14 @@ initialModel
   , _unit = Minute
   , chosenTea = Nothing
   , _lightness = 100
-  , done = False
+  , _done = False
   }
 
 convert :: Model -> Float -> Float
 convert m t = case _unit m of
   Minute -> t * 60
   Second -> t
+
 setTime :: Model -> Tea -> Float
 setTime m (Other t) = convert m t
 setTime m Green = convert m greenDef
@@ -79,7 +81,6 @@ flipUnit :: Unit -> Unit
 flipUnit Minute = Second
 flipUnit Second = Minute
 
--- lowest 
 lightnessRate :: Tea -> Float
 lightnessRate Green = equalPortion 58 greenDef
 lightnessRate Black = equalPortion 40 blackDef
@@ -89,41 +90,38 @@ lightnessRate ( Other c ) = equalPortion 58 c
 equalPortion :: Float -> Float -> Float
 equalPortion a b = a / (b * 60)
 
-teaColor :: Model -> String
+teaColor :: Model -> Text
 teaColor m = case (chosenTea m, ceiling $ _lightness m) of
   ( Just White, lightness) ->
-    "background: " ++ hsl 92 57 lightness -- min 88
+    "background: " <> hsl 92 57 lightness -- min 88
   ( Just Green , lightness) ->
-    "background: " ++ hsl 92 57 lightness -- min 58
+    "background: " <> hsl 92 57 lightness -- min 58
   ( Just Black, lightness) ->
-    "background: " ++ hsl 38 54 lightness -- min 40
-  ( _, lightness) -> "background: " ++ hsl 38 54 lightness
-
-hsl :: Int -> Int -> Int -> String
-hsl h s l = "hsl(" ++ inner ++ ")"
-  where
-    inner = join "," [show h, s',l']
-    s' = show s ++ "%"
-    l' = show l ++ "%"
+    "background: " <> hsl 38 54 lightness -- min 40
+  ( _, lightness) -> "background: " <> hsl 38 54 lightness
 
 
 loading :: MonadWidget t m => m ()
 loading = text "loading..."
 
-showMaybeConcat :: Maybe Tea -> String -> String -> String
+showMaybeConcat :: Maybe Tea -> Text -> Text -> Text
 showMaybeConcat Nothing _ def' = def'
-showMaybeConcat ( Just a ) c _ = show a ++ c
+showMaybeConcat ( Just a ) c _ = tshow a <> c
 
 elapsedWidget :: MonadWidget t m => Dynamic t Model -> m ()
 elapsedWidget m  =
+  -- isDone <- mapDyn _done m
+  -- if isDone
+  --   then el "header" $ text "Tea is Done!"
+  --   else
   el "header" $ do
-    t <- mapDyn (\m' -> showMaybeConcat (chosenTea m') " tea will be ready in " "select a steep time") m
+    let t = fmap (\m' -> showMaybeConcat (chosenTea m') " tea will be ready in " "select a steep time") m
     dynText t
-    dynText =<< mapDyn showTime m
+    dynText $ fmap showTime m
 
 statusWidget :: MonadWidget t m => Dynamic t Model -> m ()
 statusWidget model = do
-  attrs <- mapDyn (\m ->
+  let attrs = fmap (\m ->
         "class" =: "six columns tea-block" <>
         "style" =: teaColor m) model
 
@@ -133,23 +131,18 @@ statusWidget model = do
       pure ()
   pure ()
 
-div :: MonadWidget t m => String -> m a -> m a
-div = elClass "div"
-
 update :: Action -> Model -> Model
 update UnitChange m = m { _unit = flipUnit (_unit m) }
 update (Start tea) m =
   initialModel { currentTime = setTime m tea
                , chosenTea = Just tea
                }
-update TimerTick m = 
+update TimerTick m =
   let t = currentTime m - increment
   in
     if t >= 0
-    then 
-      m { currentTime = t, _lightness = _lightness m - rate }
-    else
-      m { done = True }
+    then m { currentTime = t, _lightness = _lightness m - rate }
+    else m { _done = True }
     where
       rate = case chosenTea m of
         Nothing -> 0
@@ -176,10 +169,9 @@ view t0 model = elClass "div" "row" $ do
         o <- button "Custom Time"
         od <- holdDyn (2.5 :: Float) otherTime
         pure ( o, od )
-      let startEvent = leftmost [green, black, white, other]
 
       minuteBox <- checkbox True $ Widget.checkboxAttrs "unit" "minute"
-      dynText =<< mapDyn (show . _unit) model
+      dynText $ fmap (tshow . _unit) model
       let unitToggle = _checkbox_change minuteBox
 
   pure $ leftmost
@@ -197,35 +189,47 @@ bodyElement tStart =
     rec changes <- view tStart model
         model <- foldDyn update initialModel changes
 
-        t <- mapDyn showTime model
+        display model
+        -- timer bell
+        Widget.audioEl "ding.wav"
+        let isDone = fmap _done model
+        let doneEvent = updated isDone
+        -- pure $ Widget.playAudio <$ doneEvent
+
+        -- update page title with time remaining
+        let t = fmap showTime model
         _ <- elDynHtml' "title" t
+
     pure ()
 
 timerContainer :: MonadWidget t m => m a -> m a
 timerContainer body =
-  elClass "div" "row" $
-    elClass "div" "twelve columns" $ do
+  div "row" $
+    div "twelve columns" $ do
       r <- body
       pure r
 
 mainContainer :: MonadWidget t m => m () -> m ()
 mainContainer body = do
-  _ <- elClass "div" "container" $
-    elClass "div" "row" $
-      elClass "div" "twelve columns" $ do
+  _ <- div "container" $
+    div "row" $
+      div "twelve columns" $ do
         el "h1" $ text "Tea Time"
         body
   pure ()
 
 
-showTime :: Model -> String
+showTime :: Model -> Text
 showTime model = case _unit model of
-  Second -> show (currentTime model) ++ " seconds"
+  Second -> tshow (currentTime model) <> " seconds"
   Minute ->
-    m ++ ":" ++ s
+    m <> ":" <> s
     where
-      m = show $ fst (quotRem d' 60)
-      s = show $ snd (quotRem d' 60)
+      m = tshow $ fst (quotRem d' 60)
+      s = tshow $ snd (quotRem d' 60)
       d' = ceiling (currentTime model) :: Int
 
-join = intercalate
+
+div :: MonadWidget t m => Text -> m a -> m a
+div = elClass "div"
+

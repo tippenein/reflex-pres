@@ -10,38 +10,45 @@ module Widget where
 import           Reflex
 import           Reflex.Dom
 
-import Data.Default (Default)
+import           Data.Text (Text)
+import qualified Data.Text as T
+import           Data.Default (Default)
 import           Data.Map         (Map)
 import qualified Data.Map         as Map
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Time.Clock  (UTCTime)
 import           Data.Time.Format (defaultTimeLocale, parseTimeM)
+import           System.IO.Unsafe (unsafePerformIO)
 import qualified GHCJS.Types    as T
-import qualified GHCJS.Foreign  as F
-
 import           Text.Read        (readMaybe)
+import Data.List
+
+import Common
+type PageTitle = Text
 
 foreign import javascript unsafe "document.getElementById($1).play()" play :: T.JSString -> IO ()
 
-type PageTitle = String
+audioEl :: MonadWidget t m => Text -> m ()
+audioEl path = elAttr "audio" ("src" =: path <> "id" =: "audio-el") $ pure ()
 
-playAudio audioFile = play "ding"
+playAudio = play "audio-el"
+
 
 headElement :: MonadWidget t m => String -> m ()
 headElement _title = stylesheetImports
 
-headElementDyn :: MonadWidget t m => Dynamic t String -> m ()
+headElementDyn :: MonadWidget t m => Dynamic t Text -> m ()
 headElementDyn title = do
   _ <- elDynHtml' "title" title
   stylesheetImports
 
 stylesheetImports :: MonadWidget t m => m ()
 stylesheetImports = do
-  styleSheet "css/style.css"
   styleSheet "https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"
   styleSheet "http://fonts.googleapis.com/css?family=Lato"
   styleSheet "https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css"
+  styleSheet "css/style.css"
 
 styleSheet _link = elAttr "link" (Map.fromList [
       ("rel", "stylesheet")
@@ -52,7 +59,7 @@ styleSheet _link = elAttr "link" (Map.fromList [
 readableInput :: (MonadWidget t m, Read a) => TextInputConfig t -> m (Event t a)
 readableInput conf = do
     c <- textInput conf
-    pure $ fmapMaybe readMaybe $ _textInput_input c
+    pure $ fmapMaybe readMaybe $ T.unpack <$> _textInput_input c
 
 -- radio :: (MonadWidget t m) => String -> [Checkbox String] -> m ( Event t String )
 -- radio name options =
@@ -78,7 +85,7 @@ buttonWithDyn title attrs = do
 
 maybeButton :: MonadWidget t m
             => Dynamic t Bool -- ^ Is the button enabled?
-            -> String -- ^ Static button label
+            -> Text -- ^ Static button label
             -> m (Event t ())
 maybeButton enabled label = do
     attrs <- forDyn enabled $ \e -> monoidGuard (not e) $ "disabled" =: "disabled"
@@ -90,10 +97,10 @@ datePicker :: MonadWidget t m
            -> m (Dynamic t (Maybe UTCTime))
 datePicker enabled = do
     rec raw <- textInput $ def & textInputConfig_attributes .~ attrs
-        date <- mapDyn (parseTimeM True defaultTimeLocale "%F") $ _textInput_value raw
         attrs <- dynCombine date enabled $ \d e ->
             monoidGuard (isNothing d) ("style" =: "color: red") <>
             monoidGuard (not e) ("disabled" =: "disabled")
+        let date = fmap (parseTimeM True defaultTimeLocale "%F") $ T.unpack <$> _textInput_value raw
     return date
 
 selectableList :: (MonadWidget t m, Ord k)
@@ -111,9 +118,6 @@ selectableList selection elems mkEntry = do
         fmap (const k) <$> mkEntry isSelected v
     switchPromptlyDyn <$> mapDyn (leftmost . Map.elems) selectEntry
 
-monoidGuard :: Monoid a => Bool -> a -> a
-monoidGuard p a = if p then a else mempty
-
 dynCombine :: (Reflex t, MonadHold t m)
            => Dynamic t a -> Dynamic t b
            -> (a -> b -> c)
@@ -129,9 +133,9 @@ dynCombine3 da db dc f = do
     combineDyn (\g c -> g c) dg dc
 
 checkboxAttrs :: forall b t.
-  (Reflex t, Default b, HasAttributes b, Attrs b ~ Dynamic t (Map String String))
-  => String -- | name
-  -> String -- | value
+  (Reflex t, Default b, HasAttributes b, Attrs b ~ Dynamic t (Map Text Text))
+  => Text -- | name
+  -> Text -- | value
   -> b
 checkboxAttrs name v = def & attributes .~ constDyn (
                 mconcat [ "name" =: name

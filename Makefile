@@ -1,9 +1,10 @@
 .PHONY: build assets deploy
 
+all: build assets deploy
+
 assets:
-	npm run scss
 	cp static/*.wav dist/
 build:
-	stack build && npm run copy:stackbuild
+	npm run build:dist
 deploy:
 	scp -r dist/* tippenein@deltadrome.us:/www/data/pantheon/tea/

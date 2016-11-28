@@ -9,5 +9,5 @@ import qualified Tea
 
 main :: IO ()
 main = do
-  tStart <- getCurrentTime 
+  tStart <- getCurrentTime
   mainWidgetWithHead ( Widget.headElement "Tea" ) (Tea.bodyElement tStart)

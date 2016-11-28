@@ -35,7 +35,13 @@ data Tea
   | Black
   | White
   | Other Float
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Tea where
+  show Green = "Green"
+  show White = "White"
+  show Black = "Black"
+  show (Other _) = "Other"
 
 data Action
   = Start Tea
@@ -115,6 +121,7 @@ elapsedWidget m = do
 
 nothing :: MonadWidget t m => m ()
 nothing = el "p" $ text ""
+
 statusWidget :: MonadWidget t m => Dynamic t Model -> Event t a -> m ()
 statusWidget model event = do
   let attrs = fmap (\m ->

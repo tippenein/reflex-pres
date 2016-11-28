@@ -32,8 +32,8 @@ foreign import javascript unsafe "document.getElementById($1).play()" play :: T.
 audioEl :: MonadWidget t m => Text -> m ()
 audioEl path = elAttr "audio" ("src" =: path <> "id" =: "audio-el") $ pure ()
 
-playAudio = play "audio-el"
-
+playAudio :: Bool -> IO ()
+playAudio b = if b then play "audio-el" else pure ()
 
 headElement :: MonadWidget t m => String -> m ()
 headElement _title = stylesheetImports

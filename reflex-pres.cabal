@@ -15,6 +15,7 @@ library
       base
     , text
     , time
+    , transformers
     , lens
     , data-default
     , Decimal

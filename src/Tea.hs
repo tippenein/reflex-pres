@@ -7,6 +7,7 @@ module Tea where
 import Data.Text (Text)
 import Data.Monoid ((<>))
 import Data.Maybe
+import Control.Monad.IO.Class
 import Control.Lens hiding (view)
 import Data.Time.Clock (UTCTime)
 import Reflex
@@ -69,7 +70,7 @@ initialModel
   , _unit = Minute
   , chosenTea = Nothing
   , _lightness = 100
-  , _done = False
+  , _done = True
   }
 
 convert :: Model -> Float -> Float
@@ -140,6 +141,7 @@ update UnitChange m = m { _unit = flipUnit (_unit m) }
 update (Start tea) m =
   initialModel { currentTime = setTime m tea
                , chosenTea = Just tea
+               , _done = False
                }
 update TimerTick m =
   let t = currentTime m - increment
@@ -199,8 +201,8 @@ bodyElement tStart =
         -- timer bell
         Widget.audioEl "ding.wav"
         let isDone = fmap _done model
-        let doneEvent = updated isDone
-        _ <- pure $ Widget.playAudio <$ doneEvent
+        let doneEvent = updated $ uniqDyn isDone
+        performEvent_ $ fmap (liftIO . Widget.playAudio) doneEvent
 
         -- update page title with time remaining
         let t = fmap showTime model
